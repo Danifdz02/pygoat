@@ -1,0 +1,82 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ "*" ]
+  pull_request:
+
+jobs:
+
+  bandit_scan:
+    name: Bandit SAST Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Bandit
+        run: pip install bandit
+
+      - name: Run Bandit
+        run: |
+          bandit -r . -f json -o sast-bandit.json -lll || true
+
+      - name: Upload Bandit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: sast-bandit.json
+
+
+  semgrep_scan:
+    name: Semgrep SAST Scan
+    runs-on: ubuntu-latest
+
+    container:
+      image: returntocorp/semgrep:latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        run: |
+          semgrep scan --severity=ERROR --severity=WARNING --json --output=sast-semgrep.json || true
+
+      - name: Upload Semgrep results
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-report
+          path: sast-semgrep.json
+
+
+  docker_build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: [bandit_scan, semgrep_scan]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t pygoat-app .
+
+
+  docker_scout:
+    name: Docker Scout Scan
+    runs-on: ubuntu-latest
+    needs: docker_build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t pygoat-app .
+
+      - name: Docker Scout Scan
+        uses: docker/scout-action@v1
+        with:
+          image: pygoat-app
