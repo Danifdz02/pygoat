@@ -62,21 +62,3 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t pygoat-app .
-
-
-  docker_scout:
-    name: Docker Scout Scan
-    runs-on: ubuntu-latest
-    needs: docker_build
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Build image
-        run: docker build -t pygoat-app .
-
-      - name: Docker Scout Scan
-        uses: docker/scout-action@v1
-        with:
-          image: pygoat-app
